@@ -1,13 +1,45 @@
 const Product = require('../models/Product');
+const Order = require('../models/Order');
 
 exports.getAllProducts = async (req, res) => {
     try {
         const products = await Product.find({ status: 'available' }).populate('farmerId', 'farmDetails.location');
-        const groupedProducts = groupProductsByCategory(products);
-        res.status(200).json(groupedProducts);
+        res.status(200).json(products);
     } catch (err) {
         console.error('getAllProducts: ' + err.message);
         res.status(500).send('Error fetching products');
+    }
+};
+
+exports.createOrder = async (req, res) => {
+    try {
+        const { buyerId, products, totalAmount } = req.body;
+
+        for (const product of products) {
+            const { productId, quantity } = product;
+            const dbProduct = await Product.findById(productId);
+
+            if (!dbProduct || dbProduct.quantity < quantity) {
+                return res.status(400).json({ message: `Product ${productId} is out of stock or not available` });
+            }
+        }
+
+        const order = new Order({
+            buyerId,
+            products,
+            totalAmount,
+        });
+
+        await order.save();
+
+        for (const product of products) {
+            const { productId, quantity } = product;
+            await Product.findByIdAndUpdate(productId, { $inc: { quantity: -quantity } });
+        }
+
+        res.status(201).json(order);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
 };
 
@@ -26,7 +58,7 @@ const groupProductsByCategory = (products) => {
 exports.getProductDetails = async (req, res) => {
     const { productId } = req.params;
     try {
-        const product = await Product.findById(productId).populate('farmerId', 'farmDetails.location');
+        const product = await Product.findById(productId).populate('farmerId', 'farmDetails.*');
         if (!product) {
             return res.status(404).send('Product not found');
         }
