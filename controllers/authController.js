@@ -15,32 +15,36 @@ const mailslurp = new MailSlurp({ apiKey: process.env.MAILSLURP });
 
 exports.registerFarmer = async (req, res) => {
     const { personalDetails, farmDetails, ...userData } = req.body;
+    console.log(req.body)
     try {
         const hashedPassword = await bcrypt.hash(userData.password, 10);
-        const newUser = new User({ ...userData, password: hashedPassword, role: 'farmer', status: 'pending' });
+        const newUser = new User({ username: personalDetails.firstName, email: userData.email, password: hashedPassword, role: 'farmer', status: 'pending' });
         await newUser.save();
 
         const newFarmer = new Farmer({ userId: newUser._id, personalDetails, farmDetails });
         await newFarmer.save();
 
-        res.status(201).send('Farmer registered successfully and awaiting approval');
+        return res.status(201).json({message: 'Farmer registered successfully and awaiting approval'});
     } catch (err) {
-        res.status(500).send('Error registering farmer');
+        console.error(err.message)
+        return res.status(500).send('Error registering farmer');
     }
 };
 
 exports.registerBuyer = async (req, res) => {
     const { personalDetails, deliveryPreferences, ...userData } = req.body;
+    console.log(userData)
     try {
         const hashedPassword = await bcrypt.hash(userData.password, 10);
-        const newUser = new User({ ...userData, password: hashedPassword, role: 'buyer' });
+        const newUser = new User({ username: personalDetails.firstName, email: userData.email, password: hashedPassword, role: 'buyer' });
         await newUser.save();
 
         const newBuyer = new Buyer({ userId: newUser._id, personalDetails, deliveryPreferences });
         await newBuyer.save();
 
-        res.status(201).send('Buyer registered successfully');
+        res.status(201).json({message: 'Buyer registered successfully'});
     } catch (err) {
+        console.error(err.message)
         res.status(500).send('Error registering buyer');
     }
 };
